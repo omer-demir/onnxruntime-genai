@@ -35,3 +35,7 @@ examples/csharp/HelloPhi/models
 /src/java/.gradle
 /src/java/local.properties
 /src/java/build
+
+benchmark/python/*.*-venv
+benchmark/python/cpu_results
+benchmark/python/cuda_results

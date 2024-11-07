@@ -31,6 +31,7 @@ peak_gpu_memory = 0.0
 peak_memory_lock = threading.Lock()
 stop_monitoring = False
 
+# IS_NVIDIA_SYSTEM = False
 try:
     subprocess.run(["nvidia-smi"], check=True)
     IS_NVIDIA_SYSTEM = True
@@ -213,6 +214,13 @@ def run_benchmark_memory(args, batch_size, prompt_length, generation_length, max
     
     return metrics
 
+def prompt_by_length(prompt_length):
+    json_path = "prompts.json"
+    f = open(json_path)
+    data = json.load(f)
+
+    return data[f"{prompt_length}"]
+
 def run_benchmark(args, batch_size, prompt_length, generation_length, max_length):
 
     # Get user arguments
@@ -235,7 +243,7 @@ def run_benchmark(args, batch_size, prompt_length, generation_length, max_length
     else:
         prompt = [generate_prompt(model, tokenizer, prompt_length, args.use_graph_capture)] * batch_size
         tokens = tokenizer.encode_batch(prompt)
-
+        
     params = og.GeneratorParams(model)
     params.input_ids = tokens
     do_sample = args.top_k > 1 or (args.top_p != 1.0 and args.top_p > 0.0)
@@ -251,6 +259,7 @@ def run_benchmark(args, batch_size, prompt_length, generation_length, max_length
             generator.compute_logits()
             generator.generate_next_token()
         if args.print_model_output: print(tokenizer.decode(generator.get_sequence(0)))
+        # print(tokenizer.decode(generator.get_sequence(0)))
         # Delete the generator to free the captured graph for the next generator, if graph capture is enabled
         del generator
 
@@ -259,13 +268,15 @@ def run_benchmark(args, batch_size, prompt_length, generation_length, max_length
     token_gen_times = []
     sampling_times = []
     wall_clock_times = []
+    prompt = prompt_by_length(prompt_length)
     if args.verbose: print(f"Running benchmark for batch size = {batch_size}, prompt length = {prompt_length}")
     for _ in tqdm(range(num_repetitions)):
         wall_clock_start_time = time.time()
 
         # Measure tokenization
         tokenize_start_time = time.perf_counter()
-        tokens = tokenizer.encode_batch(prompt)
+        # tokens = tokenizer.encode_batch(prompt)
+        tokens = tokenizer.encode(prompt)
         tokenize_end_time = time.perf_counter()
         tokenize_times.append(tokenize_end_time - tokenize_start_time)
 
@@ -308,6 +319,7 @@ def run_benchmark(args, batch_size, prompt_length, generation_length, max_length
         wall_clock_end_time = time.time()
         wall_clock_times.append(wall_clock_end_time - wall_clock_start_time)
         if args.print_model_output: print(tokenizer.decode(generator.get_sequence(0)))
+        # print(tokenizer.decode(generator.get_next_tokens()[0]))
 
         # Delete the generator to free the captured graph for the next generator, if graph capture is enabled
         del generator
